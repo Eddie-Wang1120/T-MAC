@@ -257,12 +257,28 @@ class QGeMMLUTBitsCodegen(OpCodegen):
 
         cbits = np.zeros((N, M), dtype=self.out_dtype)
 
+        # a-> M*K bit(0 or 1)
+        # one element in a(uint8) has 8 num / 4 groups
+        # so ngroups_per_ele = 2
+        # iterate each group -> ng = 0, 1
+        # split a into n group
+        # for example ->
+        # 200 -> 11001000 / g = 4 / n_group_per_ele = 2/
+        # ng = 0 -> 1000 / ng = 1 -> 1100
+        # concat it in last dim
+        # a -> 16, 128, 8, 8, 16 / a -> 16, 128, 8, 8, 16 * _ngroups_per_elem
         a = np.concatenate([(a >> (self.g * ng)) & ((1 << self.g) - 1) for ng in range(self._ngroups_per_elem)], axis=-1)
+
         for n in range(N):
+            # reduce k into K // self.g groups (self.g == 4)
+            # compute 4 bit in one time
             for k in range(K // self.g):
                 for m in range(M):
+                    # index for bm (0, 0, ..., M // bm)
                     mo = m // self.bm
+                    # index for k (max 1024) (0, 0, ..., K // self.g // kfactor)
                     ko = k // self.kfactor
+                    # index for bm-i (0, 0, 1, (n_groups_per_ele * simd_in))
                     mi = (m % self.bm) // self._ngroups_per_elem // self.simd_n_in
                     ki = k % self.kfactor
                     e = (m % self.bm) % (self._ngroups_per_elem * self.simd_n_in)
@@ -418,23 +434,53 @@ class QGeMMLUTBitsPreprocessorCodegen(OpCodegen):
         b = np.random.randn(N, K).astype(self.out_dtype)
         b_t = b
 
+        # reduce for K
+        # split K into [K // g, g]
         b = b.reshape(N, K // self.g, self.g)
 
+        # generate code based on group size
         codes = np.array([[i] for i in range(1 << self.g)], dtype=np.uint8)
         codes = np.unpackbits(codes, axis=1, bitorder="little", count=self.g).T
 
         def map_states(c):
             return self._states[c]
 
+        # generate all +1 -1 situations
         m = np.vectorize(map_states)(codes).astype(self.out_dtype)
 
         # (N, K // self.g, 1 << self.g)
+        # b -> (N, K // g, g)
+        # m -> (g, 2**g)
+        # b ->
+        # x11 x12 x13 x14
+        # x21 x22 x23 x24
+        # x31 x32 x33 x34
+        # x41 x42 x43 x44
+        # g == 2
+        # b ->
+        # [x11 x12], [x13 x14]
+        # [x21 x22], [x23 x24]
+        # [x31 x32], [x33 x34]
+        # [x41 x42], [x43 x44]
+        # m ->
+        # [-1. 1. -1. 1.]
+        # [-1. -1. 1. 1.]
         lut = b.dot(m)
+        # lut -> (N, K // g, 2**g)
+        # [-x11-x12 x11-x12 -x11+x12 x11+x12], [-x13-x14 .. x13+x14]
+        # ..
+        # [-x41-x42 x41-x42 -x41+x42 x41+x42], [-x43-x44 .. x43+x44]        
+        
+        # split K // g into act_group_size
+        # assign first of each act_group element(-1, -1) as sub_lut_biases
         lut_biases = lut.reshape(N, K // self.act_group_size, self.act_group_size // self.g, 1 << self.g)[:, :, :, 0]
+        # reduce sum for the last dim
+        # lut_biases -> (N, K // act_group_size)
         lut_biases = np.sum(lut_biases, axis=-1) * self._gamma
-
+    
         # quantization
         qlut = lut.reshape(N, K // self.act_group_size, self.act_group_size // self.g * (1 << self.g))
+        # quantize per act_group
         absmax = np.max(np.abs(qlut), axis=-1)
         lut_scales = absmax / self.maxv
 
@@ -442,6 +488,7 @@ class QGeMMLUTBitsPreprocessorCodegen(OpCodegen):
             return 1.0 / s if s != 0 else 0
 
         ils = np.vectorize(recp)(lut_scales).astype(self.out_dtype)
+        # qlut -> lut after quantization (per act_group)
         qlut = np.rint((qlut.transpose(0, 2, 1) * ils).transpose(0, 2, 1).reshape(N, K // self.g, 1 << self.g)).astype(self.dtype)
 
         return [b_t, lut_scales, lut_biases, qlut]
