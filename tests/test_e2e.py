@@ -49,33 +49,45 @@ bm = qgemm.bm
 kfactor = qgemm.kfactor
 weight_dtype = qgemm.weight_dtype
 
-# Inputs
+# # Inputs
 Aref = np.random.randint(0, 16, size=(M // bits, K)).astype(weight_dtype)
 Sref = np.abs(np.random.randn(M // bits, K // group_size).astype(out_dtype))
 Bref = np.random.randn(N, K).astype(out_dtype)
 
-# Outputs
-Adq = Aref.T.reshape(K // group_size, group_size, M // bits).astype(out_dtype) - 8
-Adq = (Adq.transpose(1, 0, 2) * Sref.T).transpose(1, 0, 2).reshape(K, M // bits)
-Cref = Bref.dot(Adq)
-print(Cref)
+# # Outputs
+# Adq = Aref.T.reshape(K // group_size, group_size, M // bits).astype(out_dtype) - 8
+# Adq = (Adq.transpose(1, 0, 2) * Sref.T).transpose(1, 0, 2).reshape(K, M // bits)
+# Cref = Bref.dot(Adq)
+# print(Cref)
 
-dev = tvm.device("llvm")
-# TVM Inputs
-A_t, Scales_t = preprocess_weights(Aref, Sref, bits=bits, g=g, bm=bm, kfactor=kfactor)
-A_t = tvm.nd.array(A_t, dev)
-B_t = tvm.nd.array(Bref, dev)
-Scales_t = tvm.nd.array(Scales_t, dev)
+# dev = tvm.device("llvm")
+# # TVM Inputs
+# A_t, Scales_t = preprocess_weights(Aref, Sref, bits=bits, g=g, bm=bm, kfactor=kfactor)
+# A_t = tvm.nd.array(A_t, dev)
+# B_t = tvm.nd.array(Bref, dev)
+# Scales_t = tvm.nd.array(Scales_t, dev)
 
-# TVM Outputs
-C_t = tvm.nd.array(Cref, dev)
+# # TVM Outputs
+# C_t = tvm.nd.array(Cref, dev)
 
-# TVM Intermediates
-LUT_Scales = tvm.nd.array(np.zeros((N, K // act_group_size), dtype=out_dtype), dev)
-LUT_Biases = tvm.nd.array(np.zeros((N, K // act_group_size), dtype=out_dtype), dev)
-QLUT = tvm.nd.array(np.zeros((N, K // g, 1 << g), dtype=dtype), dev)
+print("lut_scale")
+lut_scale = np.zeros((N, K // act_group_size))
+print(lut_scale.shape)
 
-pf(B_t, LUT_Scales, LUT_Biases, QLUT)
-qf(A_t, QLUT, Scales_t, LUT_Scales, LUT_Biases, C_t)
+print("lut_biases")
+lut_bias = np.zeros((N, K // act_group_size))
+print(lut_bias.shape)
 
-print(C_t)
+print("q_lut")
+q_lut = np.zeros((N, K // g, 1 << g))
+print(q_lut.shape)
+
+# # TVM Intermediates
+# LUT_Scales = tvm.nd.array(np.zeros((N, K // act_group_size), dtype=out_dtype), dev)
+# LUT_Biases = tvm.nd.array(np.zeros((N, K // act_group_size), dtype=out_dtype), dev)
+# QLUT = tvm.nd.array(np.zeros((N, K // g, 1 << g), dtype=dtype), dev)
+
+# pf(B_t, LUT_Scales, LUT_Biases, QLUT)
+# qf(A_t, QLUT, Scales_t, LUT_Scales, LUT_Biases, C_t)
+
+# print(C_t)

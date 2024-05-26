@@ -1,0 +1,1 @@
+clang main.cc t-mac/kernels.cc -mavx2 -mfma -lstdc++ -o main
