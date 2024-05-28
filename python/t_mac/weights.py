@@ -46,46 +46,46 @@ def preprocess_weights(
 
     # (M // bits, K, bits)
     w = np.stack([(w >> ib) & 1 for ib in range(bits)], axis=-1)
-    print(w)
+    # print(w)
     # (M // bits, K, bits) -> (M // bits, bits, K) -> (M // bits, bits, K) -> (M // bits, bits, K // g, g)
     w = w.transpose(0, 2, 1).reshape(M // bits, bits, K // g, g)
     w = sum([(w[:, :, :, ig] << ig) for ig in range(g)])
-    print(w)
-    # # 0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23, 8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31
-    # # for bits=3
-    # # bit0: [0, 8), bit1: [8, 16), bit2: [16, 24), bit0: [24, 32)
-    # # (M // bits // simd_n_float16, bits, simd_n_float16, K // g)
-    # w = w.reshape(M // bits // simd_n_out, simd_n_out, bits, K // g).transpose(0, 2, 1, 3)
-    # mgroup = ngroups_per_elem * simd_n_in
-    # w = w.reshape(M // mgroup, ngroups_per_elem, simd_n_in, K // g).transpose(0, 2, 1, 3)
-    # #             0        1             2             3                 4                  5
-    # w = w.reshape(M // bm, bm // mgroup, simd_n_in, ngroups_per_elem, K // g // kfactor, kfactor).transpose(0, 4, 1, 5, 2, 3)
-    # w = sum([(w[:, :, :, :, :, ng] << (ng * g)) for ng in range(ngroups_per_elem)])
-    # w = w.reshape(M // bm, K // g // kfactor, bm // mgroup, kfactor, simd_n_in)
-    # # input size of current TVM API
-    # w = w.reshape(M // bm, K // g, bm // ngroups_per_elem)
+    # print(w)
+    # 0, 16, 1, 17, 2, 18, 3, 19, 4, 20, 5, 21, 6, 22, 7, 23, 8, 24, 9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31
+    # for bits=3
+    # bit0: [0, 8), bit1: [8, 16), bit2: [16, 24), bit0: [24, 32)
+    # (M // bits // simd_n_float16, bits, simd_n_float16, K // g)
+    w = w.reshape(M // bits // simd_n_out, simd_n_out, bits, K // g).transpose(0, 2, 1, 3)
+    mgroup = ngroups_per_elem * simd_n_in
+    w = w.reshape(M // mgroup, ngroups_per_elem, simd_n_in, K // g).transpose(0, 2, 1, 3)
+    #             0        1             2             3                 4                  5
+    w = w.reshape(M // bm, bm // mgroup, simd_n_in, ngroups_per_elem, K // g // kfactor, kfactor).transpose(0, 4, 1, 5, 2, 3)
+    w = sum([(w[:, :, :, :, :, ng] << (ng * g)) for ng in range(ngroups_per_elem)])
+    w = w.reshape(M // bm, K // g // kfactor, bm // mgroup, kfactor, simd_n_in)
+    # input size of current TVM API
+    w = w.reshape(M // bm, K // g, bm // ngroups_per_elem)
 
-    # scales = scales.reshape(M // bm, bm // bits, K // group_size).transpose(0, 2, 1)
-    # scales = scales.reshape(M // bm, K // group_size, bm // bits // simd_n_out, simd_n_out)
-    # # input size of current TVM API
-    # scales = scales.reshape(M // bm, K // group_size, bm // bits)
+    scales = scales.reshape(M // bm, bm // bits, K // group_size).transpose(0, 2, 1)
+    scales = scales.reshape(M // bm, K // group_size, bm // bits // simd_n_out, simd_n_out)
+    # input size of current TVM API
+    scales = scales.reshape(M // bm, K // group_size, bm // bits)
 
     return w, scales
 
-M = 4
-K = 4
+# M = 4
+# K = 4
 
-check = []
-for i in range(16):
-    check.append(i % 16)
-weight = np.array(check).reshape(M, K).astype(np.uint8)
-group_size = 2
-scales = np.ones([M, K // group_size])
-preprocess_weights(weight,
-                   scales,
-                   4,
-                   4,
-                   2,
-                   2,
-                   2,
-                   2)
+# check = []
+# for i in range(16):
+#     check.append(i % 16)
+# weight = np.array(check).reshape(M, K).astype(np.uint8)
+# group_size = 2
+# scales = np.ones([M, K // group_size])
+# preprocess_weights(weight,
+#                    scales,
+#                    4,
+#                    4,
+#                    2,
+#                    2,
+#                    2,
+#                    2)
