@@ -113,21 +113,15 @@ class QGeMMLUTBitsCodegen(OpCodegen):
             raise TVMError("bm({}) must be divisible by bits({})".format(bm, self.bits))
         if N >= self.bn and N % self.bn != 0:
             raise TVMError("N({}) must be divisible by  bn({})".format(N, self.bn))
-        print(M)
-        print(N)
-        print(K)
+
         k = te.reduce_axis((0, K // self.g), "k")
-        print(k)
         A = te.placeholder((M // bm, K // self.g, bm // self._ngroups_per_elem), dtype=self.weight_dtype, name="A")
-        print(A)
         LUT = te.placeholder((N, K // self.g, 2 ** self.g), dtype=self.dtype, name="LUT")
-        print(LUT)
         if self.m_groups == -1:
             scales_shape = (M // bm, K // self.group_size, bm // self.bits)
             def _get_scale(m, k):
                 return Scales[m // bm, k * self.g // self.group_size, (m % bm) // self.bits]
         else:
-            print("scale")
             # Currently we enforce unified scale for activation as well
             # to do fast scale multiplication (do_scale_final = True)
             assert self.act_group_size == K
@@ -142,7 +136,6 @@ class QGeMMLUTBitsCodegen(OpCodegen):
         alphas = [te.const(alpha, dtype=self.out_dtype) for alpha in self.alphas]
         print(alphas)
         if self.has_lut_scale:
-            print("has lut scale")
             LUT_Scales = te.placeholder((N, K // self.act_group_size), dtype=self.out_dtype, name="LUT_Scales")
             LUT_Biases = te.placeholder((N, K // self.act_group_size), dtype=self.out_dtype, name="LUT_Biases")
             print(LUT_Scales)
@@ -154,20 +147,18 @@ class QGeMMLUTBitsCodegen(OpCodegen):
                 return val
 
         if not self.do_scale_final:
-            print("do_scale_final")
             def _scale_first(m, n, k, lut_val):
                 return _lut_scale(n, k, lut_val.astype(self.out_dtype)) * _get_scale(m, k)
             def _scale_final(m, n, cbits_sum):
                 return cbits_sum
         else:
-            print("do_first")
             def _scale_first(m, n, k, lut_val):
                 return lut_val.astype(self.aggregation_dtype)
             def _scale_final(m, n, cbits_sum):
                 return _lut_scale(n, 0, cbits_sum.astype(self.out_dtype)) * _get_scale(m, k)
 
         mask = te.const((1 << self.g) - 1, dtype=self.weight_dtype)
-        print(mask)
+        
         def _get_Abits(m, k):
             return (A[m // bm, k, (m % bm) // self._ngroups_per_elem] >> (self.g * ((m % bm) % self._ngroups_per_elem))) & mask
 
@@ -181,7 +172,7 @@ class QGeMMLUTBitsCodegen(OpCodegen):
             ),
             name="CBits",
         )
-        print(CBits)
+        
         C = te.compute(
             (N, M // self.bits),
             lambda n, m: _scale_final(m, n,
@@ -197,14 +188,13 @@ class QGeMMLUTBitsCodegen(OpCodegen):
             ),
             name="C",
         )
-        print(C)
+        
         if self.has_lut_scale:
             return [A, LUT, Scales, LUT_Scales, LUT_Biases, C]
         else:
             return [A, LUT, Scales, C]
 
     def _schedule(self, tensors: List[te.Tensor]):
-        print("scedule")
         C = tensors[-1]
         sch: te.Schedule = te.create_schedule(C.op)
 

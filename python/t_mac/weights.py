@@ -71,21 +71,3 @@ def preprocess_weights(
     scales = scales.reshape(M // bm, K // group_size, bm // bits)
 
     return w, scales
-
-# M = 4
-# K = 4
-
-# check = []
-# for i in range(16):
-#     check.append(i % 16)
-# weight = np.array(check).reshape(M, K).astype(np.uint8)
-# group_size = 2
-# scales = np.ones([M, K // group_size])
-# preprocess_weights(weight,
-#                    scales,
-#                    4,
-#                    4,
-#                    2,
-#                    2,
-#                    2,
-#                    2)
