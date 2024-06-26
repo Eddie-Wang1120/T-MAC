@@ -1,5 +1,71 @@
 # T-MAC
 
+How to build and run 2bit T-MAC with bitnet on Windows
+
+```bash
+# need visual stodio 2022
+git clone -b bitnet-e2e --recursive git@github.com:Eddie-Wang1120/T-MAC.git
+
+# build TVM
+cd 3rdparty/tvm
+
+# change conda/build-environment.yaml dependencies to
+# dependencies:
+#   - python=3.9
+#   - conda-build
+#   - llvmdev >= 15
+#   - numpy
+#   - pytest
+#   - cython
+#   - cmake > 3.20
+#   - bzip2
+#   - make
+#   - scipy
+
+conda env create --file conda/build-environment.yaml
+conda activate tvm-build
+mkdir build
+copy cmake\config.cmake build
+cd build
+cmake ..
+cmake --build . --config Release -- /m
+cd ..
+python python/setup.py install
+
+# build T-MAC
+cd ../../
+pip install -e .  # install t-mac
+pip install -r requirements-codegen.txt
+cd deploy
+python compile.py -t -o tuned -da -d intel_win -b 2 -nt 1 -tb -gc -gs 32 -ags -1
+cmake -DCMAKE_INSTALL_PREFIX=${TMAC_PROJECT_DIR}/install ..
+cmake --build . --target install --config Release
+
+# build llama.cpp
+cd ../3rdparty/llama.cpp
+mkdir build
+cd build
+cmake .. -DLLAMA_TMAC=ON -DCMAKE_PREFIX_PATH=${TMAC_PROJECT_DIR}/install/lib/cmake/t-mac -DCMAKE_BUILD_TYPE=Release -DLLAMA_TMAC_TVM_THREADPOOL=OFF -T ClangCL
+cmake --build . --config Release --target llama-bench
+cmake --build . --config Release --target main
+
+# convert model
+
+# copy the bitnet-3b-2t.pth to .\models\bitnet\
+# rename it to model-int2.pth
+
+cd ..
+python convert.py .\models\bitnet --outtype i2 --vocab-type bpe
+
+# test
+.\build\bin\Release\main.exe -m .\models\bitnet\ggml-model-i2.gguf
+
+.\build\bin\Release\llama-bench.exe -m .\models\bitnet\ggml-model-i2.gguf
+
+```
+
+
+
 ## Introduction
 
 T-MAC is a kernel library supporting mixed-precission GeMM on CPUs.
