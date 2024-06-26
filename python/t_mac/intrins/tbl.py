@@ -28,7 +28,6 @@ def tbl(
     """Create a table lookup intrinsics for a given table size and bitwidth,
     weights should be within the same group.
     """
-    print("get in tbl")
     LUT = te.placeholder((kfactor, 2 ** g), dtype, name="LUT")
     lut_buffer = tvm.tir.decl_buffer(
         LUT.shape, LUT.dtype, name="lut_buffer", offset_factor=1, strides=[te.var("sl"), 1]
@@ -74,7 +73,6 @@ def tbl(
         def _scale_first(m, k, lut_val):
             return _lut_scale(k, lut_val.astype(out_dtype)) * _get_scale(m, k)
     else:
-        print("get in there")
         def _scale_first(m, k, lut_val):
             return lut_val.astype(aggregation_dtype)
 

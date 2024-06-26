@@ -85,7 +85,6 @@ class QGeMMLUTBitsCodegen(OpCodegen):
         return self.m_groups != -1
 
     def _define_config(self, cfg, M: int, N: int, K: int):
-        print("define config")
         if self.bits == 3:
             self.bms = [192, 384, 576, 768]
         else:
@@ -93,7 +92,6 @@ class QGeMMLUTBitsCodegen(OpCodegen):
         self.bns = [8, 16, 32, 64]
         self.kfactors = [8, 16]
         if not self.do_scale_final:
-            print("not scale final")
             self.kfactors = [k for k in self.kfactors if (k * 4 >= self.act_group_size and k * 4 <= self.group_size)]
         cfg.define_knob("bm", [bm for bm in self.bms if (M % bm == 0) and (bm % self.bits == 0)])
         cfg.define_knob("bn", [8, 16, 32, 64])
@@ -127,19 +125,14 @@ class QGeMMLUTBitsCodegen(OpCodegen):
             assert self.act_group_size == K
             m_group_size = M // self.bits // self.m_groups
             scales_shape = (self.m_groups,)
-            print(scales_shape)
             def _get_scale(m, k):
                 return Scales[m // m_group_size]
 
         Scales = te.placeholder(scales_shape, dtype=self.out_dtype, name="Scales")
-        print(Scales)
         alphas = [te.const(alpha, dtype=self.out_dtype) for alpha in self.alphas]
-        print(alphas)
         if self.has_lut_scale:
             LUT_Scales = te.placeholder((N, K // self.act_group_size), dtype=self.out_dtype, name="LUT_Scales")
             LUT_Biases = te.placeholder((N, K // self.act_group_size), dtype=self.out_dtype, name="LUT_Biases")
-            print(LUT_Scales)
-            print(LUT_Biases)
             def _lut_scale(n, k, val):
                 return val * LUT_Scales[n, k * self.g // self.act_group_size] + LUT_Biases[n, k * self.g // self.act_group_size] * alphas[0]
         else:
