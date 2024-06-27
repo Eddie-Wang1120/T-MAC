@@ -27,7 +27,12 @@ conda activate tvm-build
 mkdir build
 copy cmake\config.cmake build
 cd build
+
 cmake ..
+# if zlib not found
+# conda install -c menpo zlib
+# if cmake .. incomplete, just cmake .. again that it works
+
 cmake --build . --config Release -- /m
 cd ..
 python python/setup.py install
