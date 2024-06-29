@@ -204,6 +204,7 @@ Then, compile kernels for the model. There are two options:
     ```bash
     cd deploy
     python compile.py -o tuned -da -nt 4 -tb -gc -ags -1 -t -m hf-bitnet-3b
+    # python compile.py -o tuned -da -nt 4 -tb -gc -ags -1 -t -m ms-bitnet-3b
     ```
     > Specify `-ags 64` on ARM CPUs for better performance.
 
@@ -224,6 +225,7 @@ cd ../3rdparty/llama.cpp/gguf-py
 pip install .
 cd ..
 python convert-hf-to-gguf-bitnet.py ${model_dir} --outtype i2 --outfile ${model_dir}/hf-bitnet-3B.i2.gguf --kcfg ${TMAC_ROOT_DIR}/install/lib/kcfg.ini
+# python convert-ms-to-gguf-bitnet.py ${model_dir} --outtype i2 --vocab-type bpe --kcfg ${TMAC_ROOT_DIR}/install/lib/kcfg.ini
 ```
 
 Build llama.cpp:
