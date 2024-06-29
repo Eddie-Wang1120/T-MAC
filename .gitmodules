@@ -3,4 +3,5 @@
 	url = https://github.com/apache/tvm.git
 [submodule "3rdparty/llama.cpp"]
 	path = 3rdparty/llama.cpp
-	url = https://github.com/kaleid-liner/llama.cpp
+	url = https://github.com/Eddie-Wang1120/llama.cpp.git
+	branch = ms-i2
