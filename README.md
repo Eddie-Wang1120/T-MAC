@@ -60,7 +60,7 @@ cmake --build . --config Release --target main
 # rename it to model-int2.pth
 
 cd ..
-python convert.py .\models\bitnet --outtype i2 --vocab-type bpe
+python convert.py .\models\bitnet --outtype i2 --vocab-type bpe --concurrency 1
 
 # test
 .\build\bin\Release\main.exe -m .\models\bitnet\ggml-model-i2.gguf
